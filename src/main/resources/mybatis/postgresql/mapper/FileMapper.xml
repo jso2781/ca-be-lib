@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- fmk_iot_comm_file 테이블 MAPPER -->
+<mapper namespace="kr.or.kids.domain.ca.common.file.mapper.FileMapper">
+
+    <!-- 파일 기본 목록 조회 -->
+    <select id="list"  parameterType="FileDataReqVO" resultType="FileDataResVO">
+        SELECT
+               a.atch_file_id
+             , a.atch_file_group_id
+             , a.file_seq
+             , a.file_strg_path_dsctn
+             , a.srvr_file_nm
+             , a.file_nm
+             , a.file_extn_nm
+             , a.file_cn
+             , a.file_sz
+             , a.crt_dt
+             , a.use_yn
+             , a.reg_dt
+             , TO_CHAR(a.reg_dt, 'YYYY-MM-DD HH24:MI:SS')
+             , a.rgtr_id
+             , TO_CHAR(a.mdfcn_dt, 'YYYY-MM-DD HH24:MI:SS')
+             , a.mdfr_id
+             , b.task_se_cd
+             , b.task_se_trgt_id
+        FROM kids_own.tb_ca_e_file_trsm a
+        LEFT OUTER JOIN kids_own.tb_ca_e_file_group_trsm b
+        ON a.atch_file_group_id = b.atch_file_group_id
+        WHERE 1=1
+        <if test="taskSeCd != null and taskSeCd != ''">
+            AND b.task_se_cd = #{taskSeCd}
+        </if>
+        <if test="taskSeTrgtId != null and taskSeTrgtId != ''">
+            AND b.task_se_trgt_id = #{taskSeTrgtId}
+        </if>
+        <if test="atchFileGroupId != null and atchFileGroupId != ''">
+            AND a.atch_file_group_id = #{atchFileGroupId}
+        </if>
+
+        ORDER BY a.atch_file_id DESC
+    </select>
+
+    <!-- 파일 정보 단건 조회 -->
+    <select id="data" parameterType="FileDataReqVO" resultType="FileDataResVO">
+        SELECT
+          a.atch_file_id
+        , a.atch_file_group_id
+        , a.file_seq
+        , a.file_strg_path_dsctn
+        , a.srvr_file_nm
+        , a.file_nm
+        , a.file_extn_nm
+        , a.file_cn
+        , a.file_sz
+        , a.prvc_incl_yn
+        , a.crt_dt
+        , a.use_yn
+        , a.reg_dt
+        , TO_CHAR(a.reg_dt, 'YYYY-MM-DD HH24:MI:SS')
+        , a.rgtr_id
+        , TO_CHAR(a.mdfcn_dt, 'YYYY-MM-DD HH24:MI:SS')
+        , a.mdfr_id
+        FROM kids_own.tb_ca_e_file_trsm a
+        WHERE 1=1
+        <if test="atchFileId != null and atchFileId != ''">
+            AND a.atch_file_id = #{atchFileId}
+        </if>
+        <if test="srvrFileNm != null and srvrFileNm != ''">
+            AND a.srvr_file_nm = #{srvrFileNm}
+        </if>
+
+    </select>
+
+    <!-- 다음 파일 일련번호 -->
+    <select id="nextFileId" resultType="long">
+        SELECT nextval('kids_own.sq_ca_atch_file_id')
+    </select>
+
+    <!-- 파일정보 등록 -->
+    <insert id="insert" parameterType="FileInsertReqVO">
+        INSERT INTO kids_own.tb_ca_e_file_trsm (
+                                          atch_file_id
+                                        , atch_file_group_id
+                                        , file_seq
+                                        , file_strg_path_dsctn
+                                        , srvr_file_nm
+                                        , prvc_incl_yn
+                                        , file_nm
+                                        , file_extn_nm
+                                        , file_cn
+                                        , file_sz
+                                        , crt_dt
+                                        , use_yn
+                                        , reg_dt
+                                        , rgtr_id
+                                        , mdfcn_dt
+                                        , mdfr_id
+                                ) VALUES (
+                                           #{atchFileId}
+                                         , #{atchFileGroupId}
+                                         , #{fileSeq}
+                                         , #{fileStrgPathDsctn}
+                                         , #{srvrFileNm}
+                                         , #{prvcInclYyn}
+                                         , #{fileNm}
+                                         , #{fileExtnNm}
+                                         , #{fileCn}
+                                         , #{fileSz}
+                                         , #{crtDt}
+                                         , #{useYn}
+                                         , NOW()
+                                         , #{rgtrId}
+                                         , NOW()
+                                         , #{mdfrId}
+                                         )
+    </insert>
+
+    <select id="groupData" parameterType="FileGroupReqData" resultType="FileGroupResData">
+        SELECT *
+        FROM (
+                SELECT
+                      atch_file_group_id
+                    , task_se_cd
+                    , task_se_trgt_id
+                    , use_yn
+                    , reg_dt
+                    , rgtr_id
+                    , mdfcn_dt
+                    , mdfr_id
+                    , ROW_NUMBER() OVER (ORDER BY atch_file_group_id DESC) as rn
+                FROM kids_own.tb_ca_e_file_group_trsm
+                WHERE task_se_cd = #{taskSeCd}
+        <if test="taskSeTrgtId != null and taskSeTrgtId != ''">
+            AND task_se_trgt_id = #{taskSeTrgtId}
+        </if>
+        <if test="atchFileGroupId != null and atchFileGroupId != ''">
+            AND atch_file_group_id = #{atchFileGroupId}
+        </if>
+        ) sub
+        WHERE rn = 1
+    </select>
+
+    <!-- 마지막 파일그룹 일련 번호 조회 -->
+    <select id="getLastFileGroupId"  resultType="long">
+        select COALESCE(MAX(atch_file_group_id),0)
+        FROM  kids_own.tb_ca_e_file_group_trsm
+        <!-- WHERE  cntn_se_no = '1' -->
+    </select>
+
+    <!-- 다음 파일 그룹 일련번호 -->
+    <select id="nextFileGroupId" resultType="long">
+        SELECT nextval('kids_own.sq_ca_atch_file_group_id')
+    </select>
+
+    <!-- 파일 그룹 정보 등록 -->
+    <insert id="groupInsert" parameterType="FileGroupInsertReq">
+        INSERT INTO kids_own.tb_ca_e_file_group_trsm (
+                                                atch_file_group_id
+                                              , task_se_cd
+                                              , task_se_trgt_id
+                                              , use_yn
+                                              , reg_dt
+                                              , rgtr_id
+                                              , mdfcn_dt
+                                              , mdfr_id
+                                    ) VALUES (
+                                               #{atchFileGroupId}
+                                             , #{taskSeCd}
+                                             , #{taskSeTrgtId}
+                                             , #{useYn}
+                                             , NOW()
+                                             , #{rgtrId}
+                                             , NOW()
+                                             , #{mdfrId}
+                                             )
+        ON CONFLICT (atch_file_group_id)
+        DO UPDATE SET
+            use_yn = #{useYn} ,
+            mdfcn_dt = NOW() ,
+            mdfr_id = #{mdfrId}
+    </insert>
+
+    <!-- 파일 정보 단건 수정 -->
+    <update id="groupUpdate" parameterType="FileGroupInsertReq">
+        UPDATE kids_own.tb_ca_e_file_group_trsm
+        SET
+            task_se_trgt_id  = #{taskSeTrgtId}
+          , mdfcn_dt         = NOW()
+        WHERE
+            atch_file_group_id = #{atchFileGroupId}
+    </update>
+
+    <!-- 파일 정보 단건 수정 -->
+    <update id="update" parameterType="FileUpdateReqVO">
+        UPDATE kids_own.tb_ca_e_file_group_trsm
+        SET
+            file_nm       = COALESCE(#{fileNm}     , file_nm)
+          , file_enc_nm   = COALESCE(#{fileEncNm}  , file_enc_nm)
+          , file_path     = COALESCE(#{filePath}   , file_path)
+          , download_cnt  = COALESCE(#{downloadCnt}, download_cnt)
+          , file_content  = COALESCE(#{fileContent}, file_content)
+          , file_size     = COALESCE(#{fileSize}   , file_size)
+          , file_type     = COALESCE(#{fileType}   , file_type)
+          , img_width     = COALESCE(#{imgWidth}   , img_width)
+          , img_height    = COALESCE(#{imgHeight}  , img_height)
+          , del_yn        = COALESCE(#{delYn}      , del_yn)
+          , up_datetime   = NOW()
+        WHERE 1=1
+          AND del_yn  = 'N'
+          AND atch_file_id = #{atchFileId}
+    </update>
+
+    <!-- 파일 정보 그룹 단위 삭제 -->
+    <delete id="delete" parameterType="FileDeleteReqVO">
+        DELETE FROM
+                    kids_own.tb_ca_e_file_trsm
+        WHERE
+            atch_file_group_id = #{atchFileGroupId}
+    </delete>
+
+    <!-- 파일 정보 단건 삭제 -->
+    <delete id="deleteOne" parameterType="FileDeleteReqVO">
+        DELETE FROM
+            kids_own.tb_ca_e_file_trsm
+        WHERE
+            atch_file_id = #{atchFileId}
+          AND
+            atch_file_group_id = #{atchFileGroupId}
+    </delete>
+
+
+    <!-- 파일 정보 단건 삭제 -->
+    <delete id="deleteGroup" parameterType="FileDeleteReqVO">
+        DELETE FROM
+            kids_own.tb_ca_e_file_group_trsm
+        WHERE
+            atch_file_group_id = #{atchFileGroupId}
+    </delete>
+
+    <!-- 파일 다운로드 사유 로그 등록 -->
+    <insert id="insertDownloadLog" parameterType="FileDownloadLogReqVO">
+        INSERT INTO kids_own.tb_ca_l_cntn_info_log (
+                                         cntn_log_sn
+                                       , acsr_id
+                                       , trgt_menu_nm
+                                       , qna
+                                       , url_addr
+                                       , prvc_incl_yn
+                                       , cntn_dt
+                                       , reg_dt
+                                       , rgtr_id
+                                ) VALUES (
+                                           #{cntnLogSn}
+                                         , COALESCE(#{acsrId}, 'SYSTEM')
+                                         , #{trgtMenuNm}
+                                         , #{qna}
+                                         , #{urlAddr}
+                                         , #{prvcInclYn}
+                                         , NOW()
+                                         , NOW()
+                                         , #{rgtrId}
+                                         )
+    </insert>
+
+    <select id="selectFileMetaByFilename" parameterType="map" resultType="FileMetaVO">
+        SELECT
+          a.atch_file_id
+        , a.atch_file_group_id
+        , a.file_seq
+        , a.prvc_incl_yn
+        , a.use_yn
+        FROM kids_own.tb_ca_e_file_trsm a
+        WHERE 1 = 1
+
+        <if test="strgFileNm != null and strgFileNm != ''">
+            AND a.strg_file_nm = #{strgFileNm}
+        </if>
+    </select>
+
+</mapper>

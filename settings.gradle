@@ -1,0 +1,29 @@
+// pluginManagement {
+//     repositories {
+//         maven {
+//             // url "http://nexus-repository-manager.nexus.svc.cluster.local:8081/repository/maven-public/"
+//             url "http://192.168.2.148:30900/repository/maven-public/"
+//             allowInsecureProtocol = true // HTTP 사용 시 필수
+//             credentials {
+//                 username = nexusUsername
+//                 password = nexusPassword
+//             }
+//         }
+//     }
+// }
+// 
+// dependencyResolutionManagement {
+//     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+//     repositories {
+//         maven {
+//             // url "http://nexus-repository-manager.nexus.svc.cluster.local:8081/repository/maven-public/"
+//             url "http://192.168.2.148:30900/repository/maven-public/"
+//             allowInsecureProtocol = true
+//             credentials {
+//                 username = nexusUsername
+//                 password = nexusPassword
+//             }
+//         }
+//     }
+// }
+rootProject.name = 'ca-common'

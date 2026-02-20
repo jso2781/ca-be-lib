@@ -1,0 +1,13 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title th:text="#{ui.error.title}">Error</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 24px;">
+    <h2 th:text="#{ui.error.title}">오류</h2>
+    <p th:text="#{ui.error.message}">처리 중 오류가 발생했습니다.</p>
+    <p><b th:text="#{ui.error.id}">오류 ID</b>: <span th:text="${errorId}"></span></p>
+    <a th:href="@{/users/new}" th:text="#{ui.common.back}">뒤로</a>
+</body>
+</html>

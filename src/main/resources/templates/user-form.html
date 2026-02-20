@@ -1,0 +1,47 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title th:text="#{ui.userForm.title}">User Form</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        .row { margin-bottom: 12px; }
+        label { display:block; margin-bottom: 4px; }
+        input { padding: 8px; width: 320px; }
+        .error { color: #b00020; margin-top: 4px; }
+        .lang a { margin-right: 10px; }
+        .box { padding: 16px; border: 1px solid #ddd; border-radius: 8px; width: 380px; }
+        .btn { padding: 10px 14px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="lang">
+        <!-- ✅ localeChangeInterceptor: ?lang=ko / ?lang=en -->
+        <a th:href="@{/users/new(lang='ko')}">한국어</a>
+        <a th:href="@{/users/new(lang='en')}">English</a>
+    </div>
+
+    <h2 th:text="#{ui.userForm.title}">회원 가입</h2>
+
+    <div class="box">
+        <form th:action="@{/users}" th:object="${userForm}" method="post">
+
+            <div class="row">
+                <label th:for="name" th:text="#{label.user.name}">이름</label>
+                <input id="name" type="text" th:field="*{name}" />
+                <div class="error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}">name error</div>
+            </div>
+
+            <div class="row">
+                <label th:for="email" th:text="#{label.user.email}">이메일</label>
+                <input id="email" type="text" th:field="*{email}" />
+                <div class="error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">email error</div>
+            </div>
+
+            <button class="btn" type="submit" th:text="#{ui.common.submit}">등록</button>
+        </form>
+    </div>
+
+</body>
+</html>

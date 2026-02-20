@@ -1,0 +1,15 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title th:text="#{ui.userSuccess.title}">Success</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 24px;">
+    <h2 th:text="#{ui.userSuccess.title}">완료</h2>
+
+    <p th:text="#{ui.userSuccess.message(${name})}">환영합니다!</p>
+    <p><b th:text="#{label.user.email}">이메일</b>: <span th:text="${email}"></span></p>
+
+    <a th:href="@{/users/new}" th:text="#{ui.common.back}">뒤로</a>
+</body>
+</html>

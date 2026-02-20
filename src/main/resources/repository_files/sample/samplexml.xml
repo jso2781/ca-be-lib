@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XMLSET>
+	<DATASET>
+		<FIELDINFO>
+			<FIELD NAME="ID" TYPE="INT" />
+			<FIELD NAME="NAME" TYPE="CHAR" />
+			<FIELD NAME="ADDRESS" TYPE="VARCHAR" />
+		</FIELDINFO>
+		<RECORD>
+			<ID>1</ID>
+			<NAME>Park Chan Ho</NAME>
+			<ADDRESS>Texas</ADDRESS>
+		</RECORD>
+		<RECORD>
+			<ID>2</ID>
+			<NAME>Shin Ki Sung</NAME>
+			<ADDRESS>Seoul</ADDRESS>
+		</RECORD>
+		<RECORD>
+			<ID>3</ID>
+			<NAME>Kim ByungHyun</NAME>
+			<ADDRESS>Arizona</ADDRESS>
+		</RECORD>
+	</DATASET>
+</XMLSET>

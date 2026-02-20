@@ -1,0 +1,92 @@
+plugins {
+	id 'java-library'
+	id 'org.springframework.boot' version '2.7.18'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'maven-publish'
+}
+
+group = 'kr.or.kids'
+version = '1.0.0'
+description = 'Kids Common Library'
+
+// 라이브러리 JAR 생성 설정
+bootJar {
+	enabled = false
+}
+
+jar {
+	enabled = true
+}
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+	withSourcesJar()
+	withJavadocJar()
+}
+
+repositories {
+	mavenCentral()
+}
+
+// 한글 인코딩 설정
+tasks.withType(JavaCompile) {
+	options.encoding = 'UTF-8'
+}
+
+dependencies {
+	// API: 사용하는 모듈에도 전이되는 의존성
+	api 'org.springframework.boot:spring-boot-starter-web'
+	api 'org.springframework.boot:spring-boot-starter-security'
+	api 'org.mybatis.spring.boot:mybatis-spring-boot-starter:2.3.2'
+	api 'org.springframework.boot:spring-boot-starter-validation'
+	
+	// Implementation: 내부에서만 사용
+	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity5'
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:1.16'
+	implementation 'org.springdoc:springdoc-openapi-ui:1.8.0'
+	implementation 'org.springdoc:springdoc-openapi-security:1.8.0'
+	implementation 'org.apache.poi:poi:5.2.3'
+	implementation 'org.apache.poi:poi-ooxml:5.2.3'
+	implementation 'com.github.pagehelper:pagehelper-spring-boot-starter:1.4.7'
+	
+	runtimeOnly 'org.postgresql:postgresql'
+
+	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+	
+	// Lombok
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	
+	// Test
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+}
+
+// Maven 배포 설정
+publishing {
+	publications {
+		mavenJava(MavenPublication) {
+			from components.java
+			
+			groupId = 'kr.or.kids'
+			artifactId = 'ca-common'
+			version = '1.0.0'
+		}
+	}
+	
+	repositories {
+		mavenLocal()
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

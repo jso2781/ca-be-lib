@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration PUBLIC "-//mybatis.org//DTD Config 3.0//EN" "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+  <settings>
+    <!-- 자동으로 카멜케이스 규칙으로 변환 -->
+    <!-- 카멜 케이스 VO 매핑 -->
+    <setting name="mapUnderscoreToCamelCase" value="true"/>
+    <!-- 쿼리 결과 필드가 null인 경우, 누락이 되서 나오지 않게 설정 -->
+    <setting name="callSettersOnNulls" value="true"/>
+    <!-- 쿼리에 보내는 파라미터가 null인 경우, 오류가 발생하는 것 방지 -->
+    <setting name="jdbcTypeForNull" value="NULL"/>
+ </settings>
+    <typeAliases>
+        <typeAlias alias="CamelHashMap" type="kr.or.kids.global.util.CamelHashMap"/>
+          <!-- 파일 VO 클래스들 -->
+        <typeAlias alias="FileDataReqVO" type="kr.or.kids.domain.ca.common.file.vo.FileDataReqVO"/>
+        <typeAlias alias="FileDataResVO" type="kr.or.kids.domain.ca.common.file.vo.FileDataResVO"/>
+        <typeAlias alias="FileDeleteReqVO" type="kr.or.kids.domain.ca.common.file.vo.FileDeleteReqVO"/>
+        <typeAlias alias="FileInsertReqVO" type="kr.or.kids.domain.ca.common.file.vo.FileInsertReqVO"/>
+        <typeAlias alias="FileUpdateReqVO" type="kr.or.kids.domain.ca.common.file.vo.FileUpdateReqVO"/>
+        <typeAlias alias="FileGroupInsertReq" type="kr.or.kids.domain.ca.common.file.vo.FileGroupInsertReq"/>
+        <typeAlias alias="FileGroupResData" type="kr.or.kids.domain.ca.common.file.vo.FileGroupResData"/>
+        <typeAlias alias="FileGroupReqData" type="kr.or.kids.domain.ca.common.file.vo.FileGroupReqData"/>
+        <typeAlias alias="FileMetaVO" type="kr.or.kids.domain.ca.common.file.vo.FileMetaVO"/>
+
+    </typeAliases>
+</configuration>

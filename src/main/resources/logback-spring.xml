@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- 컬러 출력 -->
+  <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+
+  <!-- 패턴/경로 -->
+  <property name="CONSOLE_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %clr(%5level) [%X{requestId}] %cyan(%-40.40logger{39}) - %msg%n"/>
+  <property name="FILE_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %5level [%X{requestId}] %logger - %msg%n"/>
+  <property name="LOG_FILE_PATH" value="logs"/>
+
+  <!-- 콘솔 -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- 파일 (활성 파일 + 크기/일자 롤링) -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_FILE_PATH}/api.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_FILE_PATH}/%d{yyyyMMdd}/api-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>100MB</maxFileSize>
+      <maxHistory>14</maxHistory>
+      <cleanHistoryOnStart>true</cleanHistoryOnStart>
+    </rollingPolicy>
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+      <pattern>${FILE_LOG_PATTERN}</pattern>
+    </encoder>
+    <!-- DEBUG 이상만 파일에 기록 -->
+    <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+      <level>DEBUG</level>
+    </filter>
+  </appender>
+
+  <!-- 기본 루트 -->
+  <!-- 
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+  </root>
+  -->
+
+  <!-- ===== 로컬 개발(local) ===== -->
+  <springProfile name="local">
+    <!-- log4jdbc 사용 시에만 유효 -->
+    <logger name="jdbc" level="OFF"/>
+    <logger name="jdbc.sqlonly" level="OFF"/>
+    <logger name="jdbc.sqltiming" level="DEBUG"/>
+    <logger name="jdbc.resultset" level="OFF"/>
+    <logger name="jdbc.resultsettable" level="DEBUG"/>
+    <logger name="jdbc.audit" level="OFF"/>
+    <logger name="jdbc.connection" level="OFF"/>
+
+    <!-- MyBatis /  OFF -->
+    <logger name="org.mybatis" level="DEBUG"/>
+    <logger name="org.apache.ibatis" level="DEBUG"/>
+    <logger name="org.springframework.jdbc.core" level="OFF"/>
+    <logger name="com.drugsafe.user" level="DEBUG"/>
+
+    <!-- DEBUG 6 -->
+    <logger name="org.hibernate.SQL" level="OFF"/>
+    <logger name="org.hibernate.orm.jdbc.bind" level="OFF"/>
+    <logger name="org.hibernate.orm.jdbc.extract" level="OFF"/>
+
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+      <appender-ref ref="FILE"/>
+    </root>
+  </springProfile>
+
+  <!-- ===== 개발 서버(dev) ===== -->
+  <springProfile name="dev">
+    <!-- log4jdbc 카테고리 (의존성 있을 때만) -->
+    <logger name="jdbc" level="OFF"/>
+    <logger name="jdbc.sqlonly" level="OFF"/>
+    <logger name="jdbc.sqltiming" level="DEBUG"/>
+    <logger name="jdbc.resultset" level="OFF"/>
+    <logger name="jdbc.resultsettable" level="DEBUG"/>
+    <logger name="jdbc.audit" level="OFF"/>
+    <logger name="jdbc.connection" level="OFF"/>
+
+    <!-- MyBatis/JDBC -->
+    <logger name="org.mybatis" level="OFF"/>
+    <logger name="org.apache.ibatis" level="OFF"/>
+    <logger name="org.springframework.jdbc.core" level="OFF"/>
+    <logger name="com.drugsafe.user" level="DEBUG"/>
+
+    <!-- Hibernate 6 -->
+    <logger name="org.hibernate.SQL" level="OFF"/>
+    <logger name="org.hibernate.orm.jdbc.bind" level="OFF"/>
+    <logger name="org.hibernate.orm.jdbc.extract" level="OFF"/>
+
+    <root level="DEBUG">
+      <appender-ref ref="CONSOLE"/>
+      <appender-ref ref="FILE"/>
+    </root>
+  </springProfile>
+
+  <!-- ===== 운영(prod) ===== -->
+  <springProfile name="prod">
+    <!-- 운영에서는 과도한 TRACE는 지양 -->
+    <logger name="org.mybatis" level="INFO"/>
+    <logger name="org.apache.ibatis" level="INFO"/>
+    <logger name="org.springframework.jdbc.core" level="INFO"/>
+    <logger name="com.drugsafe.user" level="INFO"/>
+
+    <logger name="org.hibernate.SQL" level="OFF"/>
+    <logger name="org.hibernate.orm.jdbc.bind" level="TRACE"/>
+    <logger name="org.hibernate.orm.jdbc.extract" level="TRACE"/>
+
+    <root level="INFO">
+      <appender-ref ref="CONSOLE"/>
+      <appender-ref ref="FILE"/>
+    </root>
+  </springProfile>
+</configuration>

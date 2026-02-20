@@ -1,0 +1,54 @@
+{
+	"list": [
+		{
+			"name" : "vrs-relay"
+			, "level": 1
+			, "urls": {
+				"provider": "https://mobile.anyid.dev:1455/vrs/v2.1/index.jsp"
+				, "extract": "/jsp/vrs/extract.jsp"
+			}
+		} 
+		, {
+			"name" : "fincert-relay"
+			, "level": 2
+			, "urls": {
+				"provider": "https://crt.anyid.dev:1456/fincert/v2.1/index.jsp"
+			}
+		}    
+		, {
+			"name" : "magcert-relay"
+			, "level": 2
+			, "urls": {
+				"provider": "https://crt.anyid.dev:1456/MagicLine4Web/v2.1/share.jsp"
+			} 
+		}
+		, {
+			"name": "esign-relay"
+			, "level": 2
+			, "urls": {
+				"provider": "https://easysign.anyid.go.kr/esign"
+				, "accInfo": "/jsp/esign/accessInfo.jsp"
+				, "extract": "/jsp/esign/extractInfo.jsp"
+			}
+		}
+		, {
+			"name" : "social-relay"
+			, "level": 3
+			, "urls": {
+				"provider": "https://www.anyid.dev:1443/pid/auth.do"
+				, "accInfo": "/jsp/pid/accessInfo.jsp"
+				, "redirectUri": "https://www.anyid.dev:1443/redirect.jsp"
+				, "extract": "/jsp/pid/extract.jsp"
+			}
+		}
+	]
+	, "calloutBox": {
+		"urls": {
+			"userMng": "https://www.anyid.dev:1451/anyid/user/mngclsf"
+			, "userReg": "https://www.anyid.dev:1451/anyid/user/regclsf"
+		}
+	}
+	, "organization": {
+		"srvcNo": "1000000001"
+	}
+}
