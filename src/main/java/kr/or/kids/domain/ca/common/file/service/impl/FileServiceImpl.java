@@ -1,25 +1,6 @@
 package kr.or.kids.domain.ca.common.file.service.impl;
 
-
-import com.github.pagehelper.PageHelper;
-import com.github.pagehelper.PageInfo;
-import kr.or.kids.domain.ca.common.file.mapper.FileMapper;
-import kr.or.kids.domain.ca.common.file.service.FileCryptoService;
-import kr.or.kids.domain.ca.common.file.service.FileService;
-import kr.or.kids.domain.ca.common.file.vo.*;
-import kr.or.kids.global.config.FileProperties;
-import kr.or.kids.global.system.common.ApiResultCode;
-import kr.or.kids.global.system.common.vo.ApiPrnDto;
-import kr.or.kids.global.util.DrugsafeUtil;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
-
-import kr.or.kids.domain.ca.common.file.vo.*;
-
+import static kr.or.kids.global.system.common.ApiResultCode.SUCCESS;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,15 +10,42 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
-import static kr.or.kids.global.system.common.ApiResultCode.SUCCESS;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.github.pagehelper.PageHelper;
+import com.github.pagehelper.PageInfo;
+
+import kr.or.kids.domain.ca.common.file.mapper.FileMapper;
+import kr.or.kids.domain.ca.common.file.service.FileCryptoService;
+import kr.or.kids.domain.ca.common.file.service.FileService;
+import kr.or.kids.domain.ca.common.file.vo.FileDataReqVO;
+import kr.or.kids.domain.ca.common.file.vo.FileDataResVO;
+import kr.or.kids.domain.ca.common.file.vo.FileDeleteReqVO;
+import kr.or.kids.domain.ca.common.file.vo.FileDownloadLogReqVO;
+import kr.or.kids.domain.ca.common.file.vo.FileGroupInsertReq;
+import kr.or.kids.domain.ca.common.file.vo.FileGroupReqData;
+import kr.or.kids.domain.ca.common.file.vo.FileGroupResData;
+import kr.or.kids.domain.ca.common.file.vo.FileInsertReqVO;
+import kr.or.kids.global.config.FileProperties;
+import kr.or.kids.global.system.common.ApiResultCode;
+import kr.or.kids.global.system.common.vo.ApiPrnDto;
+import kr.or.kids.global.util.DrugsafeUtil;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-public class FileServiceImpl implements FileService {
-
-    private String fileSepStr = File.separator;  // 변경: OS에 맞는 파일 구분자 사용
+public class FileServiceImpl implements FileService{
 
     @Autowired
     private FileProperties fileProperties;
@@ -230,7 +238,6 @@ public class FileServiceImpl implements FileService {
         apiPrnDto.setData(bizData);
         return apiPrnDto;
     }
-
 
     /**
      * 파일 정보 단건 삭제
@@ -612,7 +619,6 @@ public class FileServiceImpl implements FileService {
                 result.setMsg("사용자 단건 조회 완료");
             }
 
-
         } catch(Exception e) {
             log.error("파일 그룹 아이디 조회 실패", e);
             result = new ApiPrnDto(ApiResultCode.SYSTEM_ERROR);
@@ -622,7 +628,6 @@ public class FileServiceImpl implements FileService {
        // result.setData(resData);
         return result;
     }
-
 
     /**
      * 파일 그룹정보 일련번호 생성
@@ -708,7 +713,6 @@ public class FileServiceImpl implements FileService {
         String atchFileGroupId = params.get("atchFileGroupId").toString();
         String prvcInclYn = params.get("prvcInclYn").toString();
         String isExcel = params.get("isExcel").toString();
-        String uuid =   UUID.randomUUID().toString();
 
         try {
             /**
@@ -728,7 +732,10 @@ public class FileServiceImpl implements FileService {
             List<HashMap<String, Object>> uploadList = new ArrayList<>();
 
             int fileSeq = 0;
-            for (MultipartFile uploadFile: uploadFiles) {
+            String uuid = null;
+            for(MultipartFile uploadFile: uploadFiles){
+                uuid = UUID.randomUUID().toString() + String.valueOf(fileSeq);
+
                 /**
                  * 파일 정보
                  */
@@ -757,42 +764,43 @@ public class FileServiceImpl implements FileService {
                 long fileSize = 0;
 
                 // 개인정보이면
-            if( (prvcInclYn.equals("1") && isExcel.equals("")) ||  (prvcInclYn.equals("1") && isExcel.equals("0"))) {
+                if((prvcInclYn.equals("1") && isExcel.equals("")) ||  (prvcInclYn.equals("1") && isExcel.equals("0"))){
 
-                log.info("개인정보 포함 파일 - 암호화 처리 시작");
+                    log.info("개인정보 포함 파일 - 암호화 처리 시작");
 
-                // 파일 데이터를 바이트 배열로 변환 후 암호화
-                fileDataToSave = cryptoService.encrypt(uploadFile.getBytes());
+                    // 파일 데이터를 바이트 배열로 변환 후 암호화
+                    fileDataToSave = cryptoService.encrypt(uploadFile.getBytes());
 
-                saveDirectoryPath = rootFilePath + tempSavePath + uuid;
-                saveFullPath = rootFilePath + tempSavePath + uuid + File.separator + realFileNm;
-                dbInsertSavePath = this.getSavePath(savePath, type, yearMonth, "") + uuid;
+                    saveDirectoryPath = rootFilePath + tempSavePath + uuid;
+                    saveFullPath = rootFilePath + tempSavePath + uuid + File.separator + realFileNm;
+                    dbInsertSavePath = this.getSavePath(savePath, type, yearMonth, "") + uuid;
 
-                log.info("암호화 완료 - 원본 크기: {}, 암호화 후 크기: {}",
-                        uploadFile.getSize(), fileDataToSave.length);
-            }else {
+                    log.info("암호화 완료 - 원본 크기: {}, 암호화 후 크기: {}",
+                            uploadFile.getSize(), fileDataToSave.length);
+                }
+                else{
+                    // 첨부가  액셀이면
+                    if((isExcel.equals("1") && prvcInclYn.equals("")) || (isExcel.equals("1") && prvcInclYn.equals("0"))){
+                        log.info("prvcInclYn:::::0000000::::" + prvcInclYn);
+                        saveDirectoryPath = rootFilePath + tempSavePath;
+                        saveFullPath = rootFilePath + tempSavePath + File.separator + realFileNm;
+                        dbInsertSavePath = this.getSavePath(savePath, type, yearMonth, isExcel);
 
-                // 첨부가  액셀이면
-                if ((isExcel.equals("1") && prvcInclYn.equals("")) || (isExcel.equals("1") && prvcInclYn.equals("0"))) {
-                    log.info("prvcInclYn:::::0000000::::" + prvcInclYn);
-                    saveDirectoryPath = rootFilePath + tempSavePath;
-                    saveFullPath = rootFilePath + tempSavePath + File.separator + realFileNm;
-                    dbInsertSavePath = this.getSavePath(savePath, type, yearMonth, isExcel);
+                        // 일반 파일 (암호화 안함)
+                        fileDataToSave = uploadFile.getBytes();
 
-                    // 일반 파일 (암호화 안함)
-                    fileDataToSave = uploadFile.getBytes();
+                        // 개인정보 포함인 경우 - 암호화 처리
+                    }
+                    else{ // 엑셀과  개인정보가 아닌 일반파일
+                        saveDirectoryPath = rootFilePath + tempSavePath;
+                        saveFullPath = rootFilePath + tempSavePath + File.separator + realFileNm;
+                        dbInsertSavePath = this.getSavePath(savePath, type, yearMonth, "");
 
-                    // 개인정보 포함인 경우 - 암호화 처리
-                } else { // 엑셀과  개인정보가 아닌 일반파일
-                    saveDirectoryPath = rootFilePath + tempSavePath;
-                    saveFullPath = rootFilePath + tempSavePath + File.separator + realFileNm;
-                    dbInsertSavePath = this.getSavePath(savePath, type, yearMonth, "");
-
-                    // 일반 파일 (암호화 안함)
-                    fileDataToSave = uploadFile.getBytes();
+                        // 일반 파일 (암호화 안함)
+                        fileDataToSave = uploadFile.getBytes();
+                    }
                 }
 
-            }
                 log.info("saveDirectoryPath:::::::::"  + saveDirectoryPath);
                 log.info("saveFullPath::::::::::::::"  + saveFullPath);
                 log.info("dbInsertSavePath:::::::::::" + dbInsertSavePath);
@@ -876,7 +884,6 @@ public class FileServiceImpl implements FileService {
         return apiPrnDto;
     }
 
-
     /**
      * 저장경로 설정
      * @param savePath 사용자 지정 경로
@@ -913,7 +920,6 @@ public class FileServiceImpl implements FileService {
 
         return savePath;
     }
-
 
     @Override
     public void saveDownloadLog(FileDownloadLogReqVO param) {
