@@ -24,6 +24,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -971,7 +972,7 @@ public class FileServiceImpl implements FileService{
             FileDataResVO fileData = fileMapper.data(fileParam);
 
             if (fileData == null) {
-                log.error("File data not found in DB: {}", filename);
+                log.error("FileServiceImpl downloadStream, File data not found in DB: {}", filename);
                 response.sendError(HttpServletResponse.SC_NOT_FOUND, "File data not found");
                 return;
             }
@@ -1100,24 +1101,28 @@ public class FileServiceImpl implements FileService{
             String atchFileId = "";
             String downloadFilename = "";
 
-            if(paramVo != null) {
-                FileDataResVO atchRVO = fileMapper.data(paramVo);
-                if (atchRVO != null) {
-                    atchFileId = atchRVO.getAtchFileId();
-                    filename = atchRVO.getSrvrFileNm();			// 암호화된 파일명 사용 (실제 저장된 파일명)
-                    path = atchRVO.getFileStrgPathDsctn();		// 저장 경로 설명
-                    downloadFilename = atchRVO.getFileNm();		// 원본 파일명 (다운로드시 사용)
-                    
-                    // 원본 파일명이 없는 경우 암호화된 파일명 사용
-                    if (downloadFilename == null || downloadFilename.isEmpty()) {
-                        downloadFilename = filename;
-                    }
-                    
-                    // 암호화된 파일명이 없는 경우 원본 파일명 사용
-                    if (filename == null || filename.isEmpty()) {
-                        filename = downloadFilename;
-                    }
-                }
+            FileDataResVO atchRVO = fileMapper.data(paramVo);
+
+            if(atchRVO == null) {
+                log.error("FileServiceImpl downloadFile, File data not found in DB: {}", filename);
+                return null;
+            }
+
+            atchFileId = atchRVO.getAtchFileId();
+            filename = atchRVO.getSrvrFileNm();			// 암호화된 파일명 사용 (실제 저장된 파일명)
+            path = atchRVO.getFileStrgPathDsctn();		// 저장 경로 설명
+            downloadFilename = atchRVO.getFileNm();		// 원본 파일명 (다운로드시 사용)
+            String prvcInclYn = atchRVO.getPrvcInclYn();
+            boolean isEncrypted = "1".equals(prvcInclYn) || "Y".equalsIgnoreCase(prvcInclYn);
+
+            // 원본 파일명이 없는 경우 암호화된 파일명 사용
+            if(downloadFilename == null || downloadFilename.isEmpty()) {
+                downloadFilename = filename;
+            }
+
+            // 암호화된 파일명이 없는 경우 원본 파일명 사용
+            if(filename == null || filename.isEmpty()) {
+                filename = downloadFilename;
             }
 
             // 파일명 검증 (경로 조작 공격 방지)
@@ -1127,8 +1132,7 @@ public class FileServiceImpl implements FileService{
             }
 
             // 다운로드 파일 경로 세팅
-            Path baseDir = Paths.get(fileStorePath).toAbsolutePath().normalize();
-            Path filePath = baseDir.resolve(path).resolve(filename).normalize();
+            Path filePath = Paths.get(fileStorePath, path, filename).normalize();
             File file = filePath.toFile();
 
             // 파일 존재 여부 확인
@@ -1143,13 +1147,42 @@ public class FileServiceImpl implements FileService{
                 throw new ApplicationException("api.error.file.validation.path");
             }
 
-            Resource resource = new FileSystemResource(file);
+            // 파일 읽기 및 복호화 처리
+            byte[] fileDataBytes;
+
+            if(isEncrypted){
+                log.info("암호화된 파일 복호화 시작");
+                byte[] encryptedData = Files.readAllBytes(filePath);
+                log.info("암호화 데이터 크기: {} bytes", encryptedData.length);
+
+                try{
+                    // 복호화
+                    fileDataBytes = cryptoService.decrypt(encryptedData);
+                    log.info("복호화 완료 - 크기: {} bytes", fileDataBytes.length);
+
+                    // ⭐ 복호화된 데이터 확인 (처음 100바이트)
+                    if(fileDataBytes.length > 0) {
+                        int previewLen = Math.min(100, fileDataBytes.length);
+                        String preview = new String(fileDataBytes, 0, previewLen, StandardCharsets.UTF_8);
+                        log.info("복호화된 데이터 미리보기: {}", preview);
+                    }
+                }catch(Exception e) {
+                    log.error("복호화 실패!", e);
+                    return null;
+                }
+            }else{
+                log.info("일반 파일 읽기");
+                fileDataBytes = Files.readAllBytes(filePath);
+                log.info("파일 크기: {} bytes", fileDataBytes.length);
+            }
+
+            Resource resource = new ByteArrayResource(fileDataBytes);
 
             String contentType = Files.probeContentType(filePath);
             if(contentType == null) {
                 contentType = "application/octet-stream";
             }
-            
+
             FileDownResVO fileDownResVO = FileDownResVO.builder()
                     .atchFileId(atchFileId)
                     .filename(downloadFilename)
@@ -1157,9 +1190,9 @@ public class FileServiceImpl implements FileService{
                     .contentLength(file.length())
                     .resource(resource)
                     .build();
-            
+
             return fileDownResVO;
-            
+
         }catch(Exception e) {
             throw new ApplicationException("api.error.file.download");
         }
