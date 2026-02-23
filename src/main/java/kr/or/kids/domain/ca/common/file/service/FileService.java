@@ -5,7 +5,10 @@ import kr.or.kids.domain.ca.common.file.vo.*;
 import kr.or.kids.global.system.common.vo.ApiPrnDto;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.util.HashMap;
+
+import javax.servlet.http.HttpServletResponse;
 
 /**
  * 파일 서비스 인터페이스
@@ -66,4 +69,17 @@ public interface FileService {
      */
     void saveDownloadLog(FileDownloadLogReqVO param);
 
+    /**
+     * 파일 다운로드 (OutputStream 방식 - 대용량 파일에 적합)
+     * @param filename 다운로드할 암호화된 파일명
+     * @param response HttpServletResponse
+     */
+    void downloadStream(String filename, HttpServletResponse response);
+
+	/**
+	 * 파일 다운로드 정보 객체 반환
+	 * @param paramVo 첨부파일ID(atchFileId), 암호화된 파일명(srvrFileNm)으로 파일 정보 검색 파라메터 VO
+	 * @return 파일 다운로드 정보 객체 반환
+	 */
+	FileDownResVO downloadFile(FileDataReqVO paramVo);
 }

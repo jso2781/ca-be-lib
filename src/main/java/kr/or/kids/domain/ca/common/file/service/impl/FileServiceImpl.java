@@ -4,6 +4,9 @@ import static kr.or.kids.global.system.common.ApiResultCode.SUCCESS;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,7 +20,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import javax.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -29,6 +38,7 @@ import com.github.pagehelper.PageInfo;
 import kr.or.kids.domain.ca.common.file.mapper.FileMapper;
 import kr.or.kids.domain.ca.common.file.service.FileCryptoService;
 import kr.or.kids.domain.ca.common.file.service.FileService;
+import kr.or.kids.domain.ca.common.file.vo.FileDownResVO;
 import kr.or.kids.domain.ca.common.file.vo.FileDataReqVO;
 import kr.or.kids.domain.ca.common.file.vo.FileDataResVO;
 import kr.or.kids.domain.ca.common.file.vo.FileDeleteReqVO;
@@ -38,6 +48,7 @@ import kr.or.kids.domain.ca.common.file.vo.FileGroupReqData;
 import kr.or.kids.domain.ca.common.file.vo.FileGroupResData;
 import kr.or.kids.domain.ca.common.file.vo.FileInsertReqVO;
 import kr.or.kids.global.config.FileProperties;
+import kr.or.kids.global.exception.ApplicationException;
 import kr.or.kids.global.system.common.ApiResultCode;
 import kr.or.kids.global.system.common.vo.ApiPrnDto;
 import kr.or.kids.global.util.DrugsafeUtil;
@@ -46,6 +57,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 public class FileServiceImpl implements FileService{
+
+    @Value("${file.storePath}")
+    private String fileStorePath;
 
     @Autowired
     private FileProperties fileProperties;
@@ -935,5 +949,296 @@ public class FileServiceImpl implements FileService{
         }
 
         log.info("파일 다운로드 사유 로그 저장 완료 - cntnLogSn={}", param.getCntnLogSn());
+    }
+
+    @Override
+    public void downloadStream(String filename, HttpServletResponse response) {
+        OutputStream outputStream = null;
+
+        try {
+            log.info("=== 다운로드 시작 - filename: {}", filename);
+
+            // 1. 파일명 검증
+            if (!isValidFilename(filename)) {
+                log.error("Invalid filename detected: {}", filename);
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid filename");
+                return;
+            }
+
+            // 2. DB에서 파일 정보 조회
+            FileDataReqVO fileParam = new FileDataReqVO();
+            fileParam.setSrvrFileNm(filename);
+            FileDataResVO fileData = fileMapper.data(fileParam);
+
+            if (fileData == null) {
+                log.error("File data not found in DB: {}", filename);
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "File data not found");
+                return;
+            }
+
+            String fileurl = fileData.getFileStrgPathDsctn();
+            String originalFilename = fileData.getFileNm();
+            String prvcInclYn = fileData.getPrvcInclYn();
+            boolean isEncrypted = "1".equals(prvcInclYn) || "Y".equalsIgnoreCase(prvcInclYn);
+
+            log.info("File info - stored: {}, original: {}, encrypted: {}",
+                    filename, originalFilename, isEncrypted);
+
+            // 3. 파일 경로 생성
+            Path filePath = Paths.get(fileStorePath, fileurl, filename).normalize();
+
+            log.info("파일 경로: {}", filePath);
+            log.info("파일 존재: {}", Files.exists(filePath));
+
+            // 4. 파일 존재 여부 확인
+            if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+                log.error("File not found: {}", filePath);
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "File not found");
+                return;
+            }
+
+            // 5. 보안 검사
+            Path baseDir = Paths.get(fileStorePath).normalize();
+            if (!filePath.startsWith(baseDir)) {
+                log.error("Access denied - file outside allowed directory: {}", filePath);
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied");
+                return;
+            }
+
+            // 6. 파일 읽기 및 복호화 처리
+            byte[] fileDataBytes;
+
+            if (isEncrypted) {
+                log.info("암호화된 파일 복호화 시작");
+                byte[] encryptedData = Files.readAllBytes(filePath);
+                log.info("암호화 데이터 크기: {} bytes", encryptedData.length);
+
+                try {
+                    // 복호화
+                    fileDataBytes = cryptoService.decrypt(encryptedData);
+                    log.info("복호화 완료 - 크기: {} bytes", fileDataBytes.length);
+
+                    // ⭐ 복호화된 데이터 확인 (처음 100바이트)
+                    if (fileDataBytes.length > 0) {
+                        int previewLen = Math.min(100, fileDataBytes.length);
+                        String preview = new String(fileDataBytes, 0, previewLen, StandardCharsets.UTF_8);
+                        log.info("복호화된 데이터 미리보기: {}", preview);
+                    }
+                } catch (Exception e) {
+                    log.error("복호화 실패!", e);
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "파일 복호화 실패: " + e.getMessage());
+                    return;
+                }
+            } else {
+                log.info("일반 파일 읽기");
+                fileDataBytes = Files.readAllBytes(filePath);
+                log.info("파일 크기: {} bytes", fileDataBytes.length);
+            }
+
+            // ⭐ 7. Content-Type 설정 - 파일 확장자 기반으로 결정
+            String contentType = getContentTypeByExtension(originalFilename);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+            response.setContentType(contentType);
+            log.info("Content-Type: {}", contentType);
+
+            // 8. 파일명 인코딩 처리 (한글 지원)
+            String downloadFilename = originalFilename != null ? originalFilename : filename;
+            String encodedFilename = URLEncoder.encode(downloadFilename, StandardCharsets.UTF_8.toString())
+                    .replaceAll("\\+", "%20");
+
+            // 9. 응답 헤더 설정
+            String contentDisposition = String.format(
+                    "attachment; filename=\"%s\"; filename*=UTF-8''%s",
+                    encodedFilename,
+                    encodedFilename
+            );
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, contentDisposition);
+            response.setHeader(HttpHeaders.CONTENT_LENGTH, String.valueOf(fileDataBytes.length));
+
+            // ⭐ 캐시 방지 헤더
+            response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            response.setHeader("Pragma", "no-cache");
+            response.setHeader("Expires", "0");
+
+            // 10. 데이터 전송 (복호화된 데이터)
+            outputStream = response.getOutputStream();
+            outputStream.write(fileDataBytes);
+            outputStream.flush();
+
+            log.info("다운로드 완료 - file: {}, size: {} bytes, encrypted: {}",
+                    downloadFilename, fileDataBytes.length, isEncrypted);
+
+        } catch (Exception e) {
+            log.error("File download error: ", e);
+            try {
+                if (!response.isCommitted()) {
+                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                            "File download failed: " + e.getMessage());
+                }
+            } catch (IOException ex) {
+                log.error("Error sending error response", ex);
+            }
+        } finally {
+            if (outputStream != null) {
+                try {
+                    outputStream.close();
+                } catch (IOException e) {
+                    log.error("Error closing output stream", e);
+                }
+            }
+        }
+    }
+
+    @Override
+    public FileDownResVO downloadFile(FileDataReqVO paramVo) {
+        try {
+            String filename = "";
+            String path = "";
+            String atchFileId = "";
+            String downloadFilename = "";
+
+            if(paramVo != null) {
+                FileDataResVO atchRVO = fileMapper.data(paramVo);
+                if (atchRVO != null) {
+                    atchFileId = atchRVO.getAtchFileId();
+                    filename = atchRVO.getSrvrFileNm();			// 암호화된 파일명 사용 (실제 저장된 파일명)
+                    path = atchRVO.getFileStrgPathDsctn();		// 저장 경로 설명
+                    downloadFilename = atchRVO.getFileNm();		// 원본 파일명 (다운로드시 사용)
+                    
+                    // 원본 파일명이 없는 경우 암호화된 파일명 사용
+                    if (downloadFilename == null || downloadFilename.isEmpty()) {
+                        downloadFilename = filename;
+                    }
+                    
+                    // 암호화된 파일명이 없는 경우 원본 파일명 사용
+                    if (filename == null || filename.isEmpty()) {
+                        filename = downloadFilename;
+                    }
+                }
+            }
+
+            // 파일명 검증 (경로 조작 공격 방지)
+            if(!isValidFilename(filename)) {
+                log.error("File name verification failed: {}", filename);
+                throw new ApplicationException("api.error.file.validation.name");  
+            }
+
+            // 다운로드 파일 경로 세팅
+            Path baseDir = Paths.get(fileStorePath).toAbsolutePath().normalize();
+            Path filePath = baseDir.resolve(path).resolve(filename).normalize();
+            File file = filePath.toFile();
+
+            // 파일 존재 여부 확인
+            if(!file.exists() || !file.isFile()) {
+                log.error("File not found: {}", filePath);
+                throw new ApplicationException("api.error.file.validation.exists");
+            }
+
+            // 보안: 파일이 지정된 디렉토리 내에 있는지 확인 (Path Traversal 방지)
+            if(!filePath.startsWith(Paths.get(fileStorePath).normalize())) {
+                log.error("Access denied - file outside allowed directory: {}", filePath);
+                throw new ApplicationException("api.error.file.validation.path");
+            }
+
+            Resource resource = new FileSystemResource(file);
+
+            String contentType = Files.probeContentType(filePath);
+            if(contentType == null) {
+                contentType = "application/octet-stream";
+            }
+            
+            FileDownResVO fileDownResVO = FileDownResVO.builder()
+                    .atchFileId(atchFileId)
+                    .filename(downloadFilename)
+                    .contentType(contentType)
+                    .contentLength(file.length())
+                    .resource(resource)
+                    .build();
+            
+            return fileDownResVO;
+            
+        }catch(Exception e) {
+            throw new ApplicationException("api.error.file.download");
+        }
+    }
+
+    // ⭐ Content-Type 결정 헬퍼 메서드
+    private String getContentTypeByExtension(String filename) {
+        if (filename == null) {
+            return null;
+        }
+
+        String extension = "";
+        int lastDot = filename.lastIndexOf('.');
+        if (lastDot > 0) {
+            extension = filename.substring(lastDot + 1).toLowerCase();
+        }
+
+        switch (extension) {
+            case "sql":
+                return "text/plain; charset=UTF-8";
+            case "txt":
+                return "text/plain; charset=UTF-8";
+            case "pdf":
+                return "application/pdf";
+            case "doc":
+                return "application/msword";
+            case "docx":
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls":
+                return "application/vnd.ms-excel";
+            case "xlsx":
+                return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            case "zip":
+                return "application/zip";
+            case "json":
+                return "application/json; charset=UTF-8";
+            case "xml":
+                return "text/xml; charset=UTF-8";
+            case "csv":
+                return "text/csv; charset=UTF-8";
+            default:
+                return "application/octet-stream";
+        }
+    }
+
+    /**
+     * 파일 존재 여부 확인 API
+     * @param filename 확인할 파일명
+     * @return 존재 여부
+     */
+    private boolean isValidFilename(String filename) {
+        if (!StringUtils.hasText(filename)) {
+            return false;
+        }
+
+        // Path Traversal 공격만 차단 (..만 차단)
+        if (filename.contains("..") || filename.contains("\0")) {
+            return false;
+        }
+
+        // 정상적인 경로 구분자는 허용, 파일명 패턴 검증
+        // Windows: \, Linux/Mac: /
+        String normalizedPath = filename.replace("\\", "/");
+
+        // 각 경로 구성 요소 검증 (빈 값, 특수문자 등)
+        String[] parts = normalizedPath.split("/");
+        for (String part : parts) {
+            if (part.isEmpty() || !part.matches("^[a-zA-Z0-9가-힣._\\-\\s()]+$")) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
